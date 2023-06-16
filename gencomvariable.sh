@@ -11,12 +11,12 @@
 #CONDITIONS OF ANY KIND, either express or implied. See the License for the
 #specific language governing permissions and limitations under the License.
 
-#This software uses diferent smart programs prepared and collected elsewhere each one retain its particular licence, please comply with them.
+#This software uses several smart programs prepared and collected elsewhere each one retain its particular license, please comply with them.
 
 
 usage() { echo "$0 not option added to this script please read the following help or use gencomvariable.sh -h :" && grep " .)\ #" $0; exit 0; }
 [ $# -eq 0 ] && usage
-while getopts ":hd:a:v:m:c:" arg; do
+while getopts ":hd:a:v:m:t:c:" arg; do
   case $arg in
     a) # use -a to specify Accession reference number to use for mapping.
       #echo "accession is ${OPTARG}"
@@ -35,7 +35,7 @@ while getopts ":hd:a:v:m:c:" arg; do
     d) # Specify directory where R1 and R2 reads are located.
       dir=${OPTARG}
       ;;
-    v) # Virus to apply especial analysis currently HIV, PTV and a custom options are available.
+    v) # Virus to apply especial analysis currently HIV, PTV, IMRA influenza Illumina and Minion, MPXV and a custom options are available.
       virus=${OPTARG}
       if [ virus="custom" ] ;
       then
@@ -46,7 +46,10 @@ while getopts ":hd:a:v:m:c:" arg; do
       ;;
     c) # apply a provided reference in fasta format to reads; this option must be used with options -v custom and -m FALSE.
       reference=${OPTARG}      
-      ;;      
+      ;;     
+    t) # provide a tsv file for ONT Influenza sequencing first column must be sample and second barcode.
+      meta=${OPTARG}      
+      ;;           
     h | *) # Display help para este pipeline.
       usage
       exit 0
@@ -62,12 +65,16 @@ else
 echo "downloading $accession as reference"
 mkdir -p $dir/analysis
 mkdir -p $dir/analysis/coverage
+#### download esearch from genebank read this link for details https://www.ncbi.nlm.nih.gov/books/NBK179288/ ####
+
 /home/jovyan/shared/edirect/esearch -db nuccore -query $accession | /home/jovyan/shared/edirect/efetch -format fasta > $dir/$accession.ref.fasta
 
 REF_NAME=`cat $dir/$accession.ref.fasta | grep '>' | tr -d '>' | cut -d ' ' -f 1`
 
 LENGTH=`tail -n +2 $dir/$accession.ref.fasta | tr -d '\n' | wc -m | xargs`
 echo -e "$REF_NAME\t$LENGTH" > $dir/analysis/my.genome
+
+#### this loop will look for fastq R1 and R2 reads localed in a $dir, currently all steps are intended to be use with paired-end reads ####
 
 
 for read_1 in $dir/*R1*
@@ -90,6 +97,8 @@ echo -e "starting $d $accession Analysis at \t$now" >> "$dir/analysis/mensajes.l
 mkdir -p $dir/analysis/$d
 /home/jovyan/shared/data/fastp/fastp -i $read_1 -I $read_2 -o $dir/analysis/$d/$d.R1.fastq.gz -O $dir/analysis/$d/$d.R2.fastq.gz -w 10 -R "fastp report for sample: $d" -h $dir/analysis/$d/$d.fastqreport.html -j $dir/analysis/$d/$d.jsonreport.json -f 25 -F 25
 echo "###############finished fastq step #############################"
+
+#### minimap2 must be installed in a dir and modified in this area. ####
 
 /home/jovyan/shared/data/minimap2-2.24_x64-linux/minimap2 -ax sr $dir/$accession.ref.fasta $dir/analysis/$d/$d.R1.fastq.gz -2 $dir/analysis/$d/$d.R2.fastq.gz > $dir/analysis/$d/assembled.sam 
 
@@ -152,6 +161,7 @@ fi
 #####################################################
 if [ $virus = "HIV" ] ;
 then
+###### for HIV currently we just are using the sierrapy pipe for anotating fasta generated in https://hydra.canada.ca/pages/home #####    
 for fasta in $dir/analysis/*/*Ncodetrimmed.fas
 do
 c=$(echo $fasta | awk -F ".Ncodetrimmed.fas" '{print $1}')
@@ -494,7 +504,7 @@ now="$(date +%c)"
 
 echo -e "starting $d $REF_NAME Analysis at \t$now" >> "$dir/analysis/mensajes.log"
 mkdir -p $dir/analysis/$d
-/home/jovyan/shared/data/fastp/fastp -i $read_1 -I $read_2 -o $dir/analysis/$d/$d.R1.fastq.gz -O $dir/analysis/$d/$d.R2.fastq.gz -w 10 -R "fastp report for sample: $d" -h $dir/analysis/$d/$d.fastqreport.html -j $dir/analysis/$d/$d.jsonreport.json
+/home/jovyan/shared/data/fastp/fastp -i $read_1 -I $read_2 -o $dir/analysis/$d/$d.R1.fastq.gz -O $dir/analysis/$d/$d.R2.fastq.gz -w 10 -R "fastp report for sample: $d" -h $dir/analysis/$d/$d.fastqreport.html -j $dir/analysis/$d/$d.jsonreport.json -f 25 -F 25
 echo "###############finished fastq step for $d reads 1 and 2 #############################"
 
 #gunzip $dir/analysis/$d/$d.R1.fastq.gz $dir/analysis/$d/$d.R2.fastq.gz
@@ -506,7 +516,7 @@ echo "###############starting trim primers steps for $d reads 1 and 2 ##########
 
 echo "Starting minimap mapping"
 
-/home/jovyan/shared/data/minimap2-2.24_x64-linux/minimap2 -ax sr /home/jovyan/shared/data/adinopectin.reference2.fasta $dir/analysis/$d/$d.R1.cut.fastq.gz -2 $dir/analysis/$d/$d.R2.cut.fastq.gz > $dir/analysis/$d/assembled.sam 
+/home/jovyan/shared/data/minimap2-2.24_x64-linux/minimap2 -ax sr /home/jovyan/shared/data/adinopectin.reference2.fasta $dir/analysis/$d/$d.R1.fastq.gz -2 $dir/analysis/$d/$d.R2.fastq.gz  > $dir/analysis/$d/assembled.sam 
 
 
 samtools view  -bS $dir/analysis/$d/assembled.sam  > $dir/analysis/$d/assembled1.bam
@@ -554,6 +564,10 @@ python /home/jovyan/shared/data/plotgroupedcoveragev2.py $dir/analysis/$d/ $dir/
 
 done
 
+cat $dir/analysis/coverage/coverage_file_*.tsv > $dir/analysis/coverage/depth_file.tsv 
+python /home/jovyan/shared/data/plotgroupedcoveragev2.py $dir/analysis/coverage $dir/analysis/coverage/depth_file.tsv $REF_NAME
+
+
 elif [ $virus = "mpxv" ] ;
 then
 
@@ -594,8 +608,87 @@ echo "Please update the MPXV pipeline for adding the reference and the loop for 
 
 done
 
+elif [ $virus = "INF_illumina" ] ;
+then
+
+mkdir -p $dir/analysis
+mkdir -p $dir/analysis/fastq
+mkdir -p $dir/analysis/coverage
+
+for read_1 in $dir/*R1*
+do #echo $read_1
+read_2=${read_1/R1/R2}
+echo $read_1
+echo $read_2
+longname=$(basename $read_1)
+echo $longname
+
+c=$(echo $longname | awk -F "_S" '{print $1}')
+    echo $c
+#d=$(echo $c | awk -F "/" '{print $7}')
+    echo $d
+d=$c
+echo "starting $d mapping with $REF_NAME fasta reference provided"
+echo "############################################"
+now="$(date +%c)"
+
+echo -e "starting $d $REF_NAME Analysis at \t$now" >> "$dir/analysis/mensajes.log"
+#mkdir -p $dir/analysis/$d
+/home/jovyan/shared/data/fastp/fastp -i $read_1 -I $read_2 -o $dir/analysis/fastq/$d.R1.fastq.gz -O $dir/analysis/fastq/$d.R2.fastq.gz -w 10 -R "fastp report for sample: $d" -h $dir/analysis/fastq/$d.fastqreport.html -j $dir/analysis/fastq/$d.jsonreport.json
+echo "###############finished fastq step for $d reads 1 and 2 #############################"
+
+/home/jovyan/shared/data/flu-amd/IRMA FLU $dir/analysis/fastq/$d.R1.fastq.gz $dir/analysis/fastq/$d.R2.fastq.gz $d $dir/analysis
+
+echo "###############finished IRMA pipeline for $d reads 1 and 2 #############################"
+
+done
+
+elif [ $virus = "INF_ONT" ] ;
+then
+
+mkdir -p $dir/allresults
+mkdir -p $dir/allresults/fastas
+mkdir -p $dir/allresults/coverages
+
+
+for folder in $dir/barcode* 
+do #echo $read_1
+#read_2=${read_1/R1/R2}
+#echo $read_1
+#echo $read_2
+#echo $folder
+longname=$(basename $folder)
+#echo  $longname
+
+python /home/jovyan/shared/data/diclist.py $meta $longname > $dir/output
+sample=$(cat $dir/output)
+if [ $sample = "barcodenotfound" ]; then
+echo "#### $longname not found in metadata"
+else 
+echo "using $longname for sample $sample in the analysis"
+gunzip $dir/$longname/*gz
+mkdir $dir/$longname/merged
+cat $dir/$longname/*fastq > $dir/$longname/merged/$sample.$longname.fastq
+pigz $dir/$longname/merged/$sample.$longname.fastq
+/home/jovyan/shared/data/flu-amd/IRMA FLU-minion  $dir/$longname/merged/$sample.$longname.fastq.gz $dir/$longname/$sample
+Rscript /home/jovyan/shared/data/coverage4allgenes.R $dir/$longname/$sample/tables $sample  $dir/allresults/coverages
+cat $dir/$longname/$sample/amended_consensus/*_1.fa >> $dir/allresults/fastas/PB2_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_2.fa >> $dir/allresults/fastas/PB1_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_3.fa >> $dir/allresults/fastas/PA_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_4.fa >> $dir/allresults/fastas/HA_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_5.fa >> $dir/allresults/fastas/NP_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_6.fa >> $dir/allresults/fastas/NA_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_7.fa >> $dir/allresults/fastas/M_all.fasta
+cat $dir/$longname/$sample/amended_consensus/*_8.fa >> $dir/allresults/fastas/NS_all.fasta
+mkdir $dir/$longname/rawfiles
+mv $dir/$longname/*fastq $dir/$longname/rawfiles/.
+pigz $dir/$longname/rawfiles/*fastq
+echo "###############finished IRMA pipeline for $longname of sample $sample #############################"
+fi 
+
+
+rm $dir/output
+done
+
+echo "###############gencomvariable.sh pipeline for organism $accession $virus in directory $dir #############################"
 fi
-
-
-
-
