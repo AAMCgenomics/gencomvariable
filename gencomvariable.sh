@@ -118,7 +118,7 @@ echo '#####maskingbed###'
 maskFastaFromBed -fi $dir/$accession.ref.fasta -bed $dir/analysis/$d/zero.bed -fo $dir/analysis/$d/masked.fasta
 
 echo '####masked reference ready###'
-bcftools mpileup -Ou -C50 -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
+bcftools mpileup -Ou  -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
 echo "###Mpileup ready###"
 bcftools index $dir/analysis/$d/test.vcf.gz
 cat $dir/analysis/$d/masked.fasta | bcftools consensus $dir/analysis/$d/test.vcf.gz > $dir/analysis/$d/new_consensus.fasta
@@ -227,7 +227,7 @@ echo '#####maskingbed###'
 maskFastaFromBed -fi $reference -bed $dir/analysis/$d/zero.bed -fo $dir/analysis/$d/masked.fasta
 
 echo '####masked reference ready###'
-bcftools mpileup -Ou -C50 -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
+bcftools mpileup -Ou  -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
 echo "###Mpileup ready###"
 bcftools index $dir/analysis/$d/test.vcf.gz
 cat $dir/analysis/$d/masked.fasta | bcftools consensus $dir/analysis/$d/test.vcf.gz > $dir/analysis/$d/new_consensus.fasta
@@ -317,7 +317,7 @@ echo '#####maskingbed###'
 maskFastaFromBed -fi $reference -bed $dir/analysis/$d/zero.bed -fo $dir/analysis/$d/masked.fasta
 
 echo '####masked reference ready###'
-bcftools mpileup -Ou -C50 -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
+bcftools mpileup -Ou  -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
 echo "###Mpileup ready###"
 bcftools index $dir/analysis/$d/test.vcf.gz
 cat $dir/analysis/$d/masked.fasta | bcftools consensus $dir/analysis/$d/test.vcf.gz > $dir/analysis/$d/new_consensus.fasta
@@ -433,7 +433,7 @@ maskFastaFromBed -fi $ref -bed $dir/analysis/$d/$gene.zero.bed -fo $dir/analysis
 
 echo "####masked $gene reference ready###"
 
-bcftools mpileup -Ou -C50 -f $dir/analysis/$d/$gene.masked.fasta  $dir/analysis/$d/$gene.assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
+bcftools mpileup -Ou  -f $dir/analysis/$d/$gene.masked.fasta  $dir/analysis/$d/$gene.assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
 echo "###Mpileup ready###"
 bcftools index $dir/analysis/$d/test.vcf.gz
 cat $dir/analysis/$d/$gene.masked.fasta | bcftools consensus $dir/analysis/$d/test.vcf.gz > $dir/analysis/$d/$gene.consensus.fasta
@@ -535,7 +535,7 @@ echo '#####maskingbed###'
 maskFastaFromBed -fi /home/jovyan/shared/data/adinopectin.reference2.fasta -bed $dir/analysis/$d/zero.bed -fo $dir/analysis/$d/masked.fasta
 
 echo '####masked reference ready###'
-bcftools mpileup -Ou -C50 -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
+bcftools mpileup -Ou  -f $dir/analysis/$d/masked.fasta  $dir/analysis/$d/assembled.bam | bcftools call --ploidy 1 -mv -Oz -o $dir/analysis/$d/test.vcf.gz
 echo "###Mpileup ready###"
 bcftools index $dir/analysis/$d/test.vcf.gz
 cat $dir/analysis/$d/masked.fasta | bcftools consensus $dir/analysis/$d/test.vcf.gz > $dir/analysis/$d/new_consensus.fasta
