@@ -95,19 +95,20 @@ echo "############################################"
 now="$(date +%c)"
 echo -e "starting $d $accession Analysis at \t$now" >> "$dir/analysis/mensajes.log"
 mkdir -p $dir/analysis/$d
-/home/jovyan/shared/data/fastp/fastp -i $read_1 -I $read_2 -o $dir/analysis/$d/$d.R1.fastq.gz -O $dir/analysis/$d/$d.R2.fastq.gz -w 10 -R "fastp report for sample: $d" -h $dir/analysis/$d/$d.fastqreport.html -j $dir/analysis/$d/$d.jsonreport.json -f 25 -F 25
+/home/jovyan/shared/data/fastp/fastp -i $read_1 -I $read_2 -o $dir/analysis/$d/$d.R1.fastq.gz -O $dir/analysis/$d/$d.R2.fastq.gz -w 10 -R "fastp report for sample: $d" -h $dir/analysis/$d/$d.fastqreport.html -j $dir/analysis/$d/$d.jsonreport.json 
 echo "###############finished fastq step #############################"
 
 #### minimap2 must be installed in a dir and modified in this area. ####
 
-/home/jovyan/shared/data/minimap2-2.24_x64-linux/minimap2 -ax sr $dir/$accession.ref.fasta $dir/analysis/$d/$d.R1.fastq.gz -2 $dir/analysis/$d/$d.R2.fastq.gz > $dir/analysis/$d/assembled.sam 
+/home/jovyan/shared/data/minimap2-2.24_x64-linux/minimap2 -ax sr $dir/$accession.ref.fasta $dir/analysis/$d/$d.R1.fastq.gz -2 $dir/analysis/$d/$d.R2.fastq.gz -K 2G -t 10 > $dir/analysis/$d/assembled.sam 
 
 
 samtools view  -bS $dir/analysis/$d/assembled.sam  > $dir/analysis/$d/assembled1.bam
 
-samtools sort $dir/analysis/$d/assembled1.bam -o $dir/analysis/$d/assembled.bam
+echo '######done samtools view ######'
+samtools sort -@ 10 -m 10M $dir/analysis/$d/assembled1.bam -o $dir/analysis/$d/assembled.bam
 
-#$input_dir/assembled.sam $input_dir/assembled1.bam
+##$input_dir/assembled.sam $input_dir/assembled1.bam
 
 bamsorted=$dir/analysis/$d/assembled.bam
 
@@ -300,11 +301,16 @@ echo "###############finished fastq step for $d reads 1 and 2 ##################
 
 /home/jovyan/shared/data/minimap2-2.24_x64-linux/minimap2 -ax sr $reference $dir/analysis/$d/$d.R1.fastq.gz -2 $dir/analysis/$d/$d.R2.fastq.gz > $dir/analysis/$d/assembled.sam 
 
+echo "Minimap finished"
 
 samtools view  -bS $dir/analysis/$d/assembled.sam  > $dir/analysis/$d/assembled1.bam
 
-samtools sort $dir/analysis/$d/assembled1.bam -o $dir/analysis/$d/assembled.bam
+echo "view finished"
 
+samtools sort  $dir/analysis/$d/assembled1.bam -o $dir/analysis/$d/assembled.bam
+
+
+echo "sort finished"
 #$input_dir/assembled.sam $input_dir/assembled1.bam
 
 bamsorted=$dir/analysis/$d/assembled.bam
@@ -567,10 +573,14 @@ done
 cat $dir/analysis/coverage/coverage_file_*.tsv > $dir/analysis/coverage/depth_file.tsv 
 python /home/jovyan/shared/data/plotgroupedcoveragev2.py $dir/analysis/coverage $dir/analysis/coverage/depth_file.tsv $REF_NAME
 
+echo "###### finished adipo pipeline at $date #########"
+
+
 
 elif [ $virus = "mpxv" ] ;
 then
 
+echo "###### starting mpxv pipeline at $date #########"
 mkdir -p $dir/analysis
 mkdir -p $dir/analysis/coverage
 
@@ -607,6 +617,124 @@ echo "###############finished fastq step for $d reads 1 and 2 ##################
 echo "Please update the MPXV pipeline for adding the reference and the loop for analyzing illumina generated reads."
 
 done
+
+
+elif [ $virus = "discovery" ] ;
+then
+start=`date +%m`
+
+now="$(date +%c)"
+echo "###### starting pathogen discovery pipeline at $now #########"
+#mkdir -p $dir/analysis
+#mkdir -p $dir/analysis/coverage
+echo "Will create a folder $dir/analysis"
+N=4
+pathogen_dis(){
+   /home/jovyan/shared/data/pathogen_discovery_adapted.sh \
+   --sample_num $1 \
+   --read_type "illumina-paired" \
+   --input_dir $dir \
+   --kraken_db "/home/jovyan/databases/kraken2/kraken2_human_db" \
+   --read_1 $2 \
+   --output_dir $dir/pathogen_discovery_results
+}
+
+(
+for read_1 in $dir/*R1*;
+do
+    start=`date +%s`
+   ((i=i%N)); ((i++==0)) && wait
+   longname=$(basename $read_1)
+   c=$(echo $longname | awk -F "_S" '{print $1}')
+   
+   
+   pathogen_dis $c $longname & 
+done
+wait
+)
+end="$(date +%c)"
+end2=`date +%s`
+
+echo "###### pathogen discovery pipeline finished at $now  it took `expr $end2 - $start`  minutes #########"
+
+elif [ $virus = "discoveryviral" ] ;
+then
+start=`date +%m`
+
+now="$(date +%c)"
+echo "###### starting pathogen discovery pipeline at $now #########"
+#mkdir -p $dir/analysis
+#mkdir -p $dir/analysis/coverage
+echo "Will create a folder $dir/analysis"
+N=4
+pathogen_dis(){
+   /home/jovyan/shared/data/pathogen_discovery_viral.sh \
+   --sample_num $1 \
+   --read_type "illumina-paired" \
+   --input_dir $dir \
+   --kraken_db "/home/jovyan/databases/kraken2/kraken2_human_db" \
+   --read_1 $2 \
+   --output_dir $dir/pathogen_viral_results
+}
+
+(
+for read_1 in $dir/*R1*;
+do
+    start=`date +%s`
+   ((i=i%N)); ((i++==0)) && wait
+   longname=$(basename $read_1)
+   c=$(echo $longname | awk -F "_S" '{print $1}')
+   
+   
+   pathogen_dis $c $longname & 
+done
+wait
+)
+end="$(date +%c)"
+end2=`date +%s`
+
+echo "###### pathogen discovery pipeline finished at $now  it took `expr $end2 - $start`  minutes #########"
+
+
+
+elif [ $virus = "discoverynano" ] ;
+then
+start=`date +%m`
+
+now="$(date +%c)"
+echo "###### starting pathogen discovery pipeline at $now #########"
+#mkdir -p $dir/analysis
+#mkdir -p $dir/analysis/coverage
+echo "Will create a folder $dir/analysis"
+N=4
+pathogen_dis(){
+   /home/jovyan/shared/data/pathogen_discovery_adapted.sh \
+   --sample_num $1 \
+   --read_type "nanopore" \
+   --input_dir $dir \
+   --kraken_db "/home/jovyan/databases/kraken2/kraken2_human_db" \
+   --read_1 $2 \
+   --output_dir $dir/pathogen_discovery_results
+}
+
+(
+for read_1 in $dir/*gz;
+do
+    start=`date +%s`
+   ((i=i%N)); ((i++==0)) && wait
+   longname=$(basename $read_1)
+   c=$(echo $longname | awk -F ".fastq" '{print $1}')
+   
+   
+   pathogen_dis $c $longname & 
+done
+wait
+)
+end="$(date +%c)"
+end2=`date +%s`
+
+echo "###### pathogen discovery pipeline finished at $now  it took `expr $end2 - $start`  seconds #########"
+
 
 elif [ $virus = "INF_illumina" ] ;
 then
@@ -690,5 +818,31 @@ fi
 rm $dir/output
 done
 
-echo "###############gencomvariable.sh pipeline for organism $accession $virus in directory $dir #############################"
+elif [ $virus = "DENV" ] ;
+then
+start=`date +%m`
+
+now="$(date +%c)"
+echo "###### starting Dengue pipeline at $now #########"
+#mkdir -p $dir/analysis
+#mkdir -p $dir/analysis/coverage
+echo "Will use folder $dir for read analysis"
+N=4
+DENVpipe(){
+   /home/jovyan/shared/data/denvpiperun.sh $1
+}
+
+DENVpipe $dir
+
+end="$(date +%c)"
+end2=`date +%s`
+
+echo "###### Dengue pipeline finished at $now  it took `expr $end2 - $start`  minutes #########"
+
+
+echo "############### Finished gencomvariable.sh pipeline for organism $accession $virus in directory $dir #############################"
 fi
+
+
+
+
